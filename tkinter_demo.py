@@ -54,11 +54,13 @@ recognizer = cv2.face.LBPHFaceRecognizer_create()
 userID = None
 # error trong insertPeople
 error = ""
-
-
+# biến count chạy lần đầu khi lấy ảnh
+count = 1
+# số lượng ảnh hiện có
+numberImage = None
 ########### Sự Kiên $$$$$$$$$$
 def update_frame():
-    global canvas, photo, check, sampleNum, numberReadTrain, recognizer, userID
+    global canvas, photo, check, sampleNum, numberReadTrain, recognizer, userID, count, numberImage
     ret, frame = video.read()
     # lấy ảnh
     if check == 1:
@@ -70,26 +72,25 @@ def update_frame():
             if not os.path.exists('dataSet'):
                 os.makedirs('dataSet')
             sampleNum += 1
-            # nếu tồn tại ảnh thứ 101 thì file bắt đầu: user.id.201.0
-            if os.path.exists('dataSet/User.' + str(userID) + '.200.0.jpg') is True or os.path.exists(
-                    'dataSet/User.' + str(userID) + '.200.1.jpg') is True:
-                cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(sampleNum + 200) + '.' + '0' + '.jpg',
-                            gray[y: y + h, x: x + w])
-            # nếu tồn tại ảnh thứ 1 thì file bắt đầu: user.id.101.0
-            elif os.path.exists('dataSet/User.' + str(userID) + '.100.0.jpg') is True or os.path.exists(
-                    'dataSet/User.' + str(userID) + '.100.1.jpg') is True:
-                cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(sampleNum + 100) + '.' + '0' + '.jpg',
-                            gray[y: y + h, x: x + w])
-            else:
-                # lưu khuôn mặt
-                # User.1.1.0.jpg chưa train
-                # User.1.1.1.jpg đã train
+            # số ảnh của id hiện có trong dataSet
+            if count == 1:
+                numberImage = getMaxNumberImage('dataSet', userID)
+                count = 2
+            if numberImage is None:
                 cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(sampleNum) + '.' + '0' + '.jpg',
+                            gray[y: y + h, x: x + w])
+            # lưu khuôn mặt
+            # User.1.1.0.jpg chưa train
+            # User.1.1.1.jpg đã train
+            else:
+                cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(sampleNum + numberImage) + '.' + '0' + '.jpg',
                             gray[y: y + h, x: x + w])
             break
         if sampleNum > 99:
             sampleNum = 0
             check = 0
+            count = 1
+            numberImage = None
             top = Toplevel()
             my_label = Label(top, text="LẤY ẢNH HOÀN THÀNH").pack()
             userID = None
@@ -101,7 +102,7 @@ def update_frame():
         if numberReadTrain == 1:
             recognizer = cv2.face.LBPHFaceRecognizer_create()
             numberReadTrain = numberReadTrain + 1
-            #recognizer.read('E:\\ChuyenDe\\NhanDienKhuonMat\\recoginzer\\trainingData.yml')
+            # recognizer.read('E:\\ChuyenDe\\NhanDienKhuonMat\\recoginzer\\trainingData.yml')
             recognizer.read('recoginzer/trainingData.yml')
         for (x, y, w, h) in faces:
             # vẽ ô vuông
@@ -241,7 +242,6 @@ def insertPeople(ID, name):
     global error
     # kết nối sqlite
     conn = sqlite3.connect('facebase.db')
-    print(conn)
     # tìm id
     query = "SELECT * FROM people WHERE id=" + str(ID)
     cursor = conn.execute(query)
@@ -262,7 +262,7 @@ def insertPeople(ID, name):
 
 
 def checkID(ID):
-    #conn = sqlite3.connect('E:\\ChuyenDe\\NhanDienKhuonMat\\facebase.db')
+    # conn = sqlite3.connect('E:\\ChuyenDe\\NhanDienKhuonMat\\facebase.db')
     conn = sqlite3.connect('facebase.db')
     # tìm id
     query = "SELECT * FROM people WHERE id=" + str(ID)
@@ -322,12 +322,31 @@ def getProfile(ID):
     return profile
 
 
+def getMaxNumberImage(path, ID):
+    # lấy tất cả đường dẫn ảnh trong "dataSet"
+    imagePaths = [os.path.join(path, f) for f in os.listdir(path)]
+
+    imageNumber = []
+
+    for imagePath in imagePaths:
+
+        # cắt id
+        imageID = int(imagePath.split('\\')[1].split('.')[1])
+        if imageID == ID:
+            imageNumber.append(int(imagePath.split('\\')[1].split('.')[2]))
+
+    # imageNumber == []
+    if not imageNumber:
+        return None
+    return max(imageNumber)
+
+
 # Nút Lấy Ảnh
 btblayanh = Button(window, text="LẤY ẢNH", bg="orange", fg="black", font=("Calibri Bold", 13), bd=10, command=LayAnh)
 btblayanh.place(x=270, y=560, width=110, height=70)
 # Nút Thêm Ảnh
 btbthemanh = Button(window, text="BỔ SUNG ẢNH", bg="Yellow", fg="Black", font=("Calibri Bold", 13), bd=10,
-                     command=BoSungAnh)
+                    command=BoSungAnh)
 btbthemanh.place(x=40, y=330, width=160, height=70)
 # Nút Đọc Ảnh
 btbtrainanh = Button(window, text="ĐỌC ẢNH", bg="orange", fg="black", font=("Calibri Bold", 13), bd=10, command=DocAnh)
@@ -338,7 +357,7 @@ btbnhandien = Button(window, text="NHẬN DIỆN", bg="orange", fg="black", font
 btbnhandien.place(x=620, y=560, width=120, height=70)
 # Nút Thêm Người
 btbthemnguoi = Button(window, text="THÊM NHÂN DIỆN", bg="Yellow", fg="Black", font=("Calibri Bold", 13), bd=10,
-                     command=ThemNhanDien)
+                      command=ThemNhanDien)
 btbthemnguoi.place(x=40, y=230, height=70)
 # Nút Đăng Ký
 btbdangky = Button(window, text="Đăng Ký", bg="pink", fg="black", font=("Calibri Bold", 10), bd=7, command=DangKy)
