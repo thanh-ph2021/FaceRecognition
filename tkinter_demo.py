@@ -1,44 +1,53 @@
-import os
-import sqlite3
 import tkinter
 from tkinter import *
-import tkinter.messagebox
-from tkinter import messagebox
 
-import PIL
+import PIL.Image
+import PIL.ImageTk
 import cv2
-import numpy as np
 from PIL import ImageTk, Image
+
+import os
+import sqlite3
+import numpy as np
+from tkinter import messagebox
+from tkinter import ttk
 
 window = Tk()
 window.title("Nhan Dang Khuon Mat")
-window.geometry("920x650")
-load = Image.open("nhandien3.jpg")
-render = ImageTk.PhotoImage(load)
-img = Label(window, image=render)
-img.place(x=0, y=0)
+window.geometry("920x650+300+50")
+window.config(bg="#2B2B2B")
+# load = Image.open("nhandien3.jpg")
+# render = ImageTk.PhotoImage(load)
+# img =  Label(window, image=render)
+# img.place(x=0,y=0)
 # Tiêu Đề
-lbltitle = Label(window, text="NHẬN DẠNG KHUÔN MẶT GIỐNG NHAU", fg="cyan", font=("Calibri Bold", 30), bg="#131313")
+lbltitle = Label(window, text="NHẬN DẠNG KHUÔN MẶT GIỐNG NHAU", fg="cyan", font=("Calibri Bold", 30), bg="#2B2B2B")
 lbltitle.place(x=140, y=5)
 # Nhập Tên
-blbten = Label(window, text="Nhập Tên", fon=10)
+blbten = Label(window, text="Nhập Tên")
 blbten.place(x=10, y=100)
-txtTen = Entry(window, width=25)
-txtTen.place(x=90, y=100, height=25)
+txtTen = Entry(window, width=27)
+txtTen.place(x=78, y=98, height=25)
+
 # Nhập ID
-blbID = Label(window, text="  Nhập ID ", fon=10).place(x=10, y=150)
-txtID = Entry(window, width=25)
-txtID.place(x=90, y=150, height=25)
+blbID = Label(window, text="  Nhập ID ")
+blbID.place(x=10, y=150)
+txtID = Entry(window, width=27)
+txtID.place(x=78, y=148, height=25)
 # Thông Báo
-boxthongbao = LabelFrame(window, width=230, height=100, bd=5, bg="LIGHTBLUE")
-boxthongbao.place(x=10, y=410)
-lblthongbao = Label(boxthongbao, font=("Calibri Bold", 20), bg="lightblue", fg="red")
+boxthongbao = LabelFrame(window, text="            Thông Báo            ", width=230, height=219, bd=5,
+                         bg="LIGHTBLUE", font=("Calibri Bold", 15), fg="black").place(x=10, y=410)
+lblthongbao1 = Label(boxthongbao, font=("Calibri Bold", 20), bg="lightblue", fg="red")
+lblthongbao2 = Label(boxthongbao, font=("Calibri Bold", 20), bg="lightblue", fg="red")
+lblthongbao3 = Label(boxthongbao, font=("Calibri Bold", 20), bg="lightblue", fg="red")
+lblthongbao4 = Label(boxthongbao, font=("Calibri Bold", 20), bg="lightblue", fg="blue")
 
 # Giao Diện Camera
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 video = cv2.VideoCapture(0)
-# lấy hình ảnh từ webcam frame:hình ret:true
-canvas = Canvas(window, width=640, height=480)
+# load thu vien
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+bw = 0
+canvas = Canvas(window, width=638, height=474)
 canvas.place(x=253, y=57)
 photo = None
 # số hình đã lấy
@@ -58,9 +67,11 @@ error = ""
 count = 1
 # số lượng ảnh hiện có
 numberImage = None
+
+
 ########### Sự Kiên $$$$$$$$$$
 def update_frame():
-    global canvas, photo, check, sampleNum, numberReadTrain, recognizer, userID, count, numberImage
+    global canvas, photo, bw, check, sampleNum, numberReadTrain, recognizer, userID, count, numberImage
     ret, frame = video.read()
     # lấy ảnh
     if check == 1:
@@ -113,7 +124,6 @@ def update_frame():
 
             # nhận diện người này là ai, trả về tham số id và độ chính xác
             ID, confidence = recognizer.predict(roi_gray)
-            name = ""
             if confidence < 100:
                 profile = getProfile(ID)
                 if profile is not None:
@@ -124,9 +134,9 @@ def update_frame():
                     cv2.putText(frame, str("Unknow"), (x + 10, y + h + 30), fontface, 1, (0, 0, 255), 2)
             break
     # Chuyen he mau
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    color = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     # Convert hanh image TK
-    photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(frame))
+    photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(color))
     # Show
     canvas.create_image(0, 0, image=photo, anchor=tkinter.NW)
     window.after(15, update_frame)
@@ -140,11 +150,9 @@ def thoat():
 
 
 def LayAnh():
-    global check, userID
+    global bw, check, userID
     btbnhandien["state"] = "normal"
-    res = ""
-    if txtID.get() == "":
-        res = "Bạn chưa nhập ID"
+    if txtID.get() == "" and userID is None:
         messagebox.showerror("Lỗi:", "Bạn chưa nhập ID!!!.")
     else:
         try:
@@ -156,21 +164,38 @@ def LayAnh():
                 messagebox.showerror("Lỗi:", "ID không tồn tại!!!")
         except ValueError:
             messagebox.showerror("Lỗi:", "ID phải nhập số!")
-    res = "Đang Lấy Ảnh"
-    lblthongbao.place(x=45, y=435)
-    lblthongbao.configure(text=res)
+    bw = 1 - bw
+    lblthongbao1.place(x=25, y=430)
+    lblthongbao1.configure(text="")
+    res2 = ""
+    lblthongbao2.place(x=25, y=470)
+    lblthongbao2.configure(text=res2)
+    res3 = "Đang Lấy Ảnh"
+    lblthongbao3.place(x=40, y=510)
+    lblthongbao3.configure(text=res3)
+    res4 = ""
+    lblthongbao4.place(x=45, y=550)
+    lblthongbao4.configure(text=res4)
 
 
 def DocAnh():
     global numberReadTrain, recognizer
-    btbnhandien["state"] = "normal"
-    res = "Đang Đọc Ảnh"
-    lblthongbao.pack()
-    lblthongbao.configure(text=res)
 
+    lblthongbao1.place(x=25, y=430)
+    lblthongbao1.configure(text="")
+    res2 = ""
+    lblthongbao2.place(x=25, y=470)
+    lblthongbao2.configure(text=res2)
+    res3 = "Đang Đọc Ảnh"
+    lblthongbao3.place(x=40, y=510)
+    lblthongbao3.configure(text=res3)
+    res4 = ""
+    lblthongbao4.place(x=45, y=550)
+    lblthongbao4.configure(text=res4)
+
+    btbnhandien["state"] = "normal"
     path = "dataSet"
     faces, Ids = getImageWithId(path)
-
     # train
     # faces != []
     if faces:
@@ -182,9 +207,9 @@ def DocAnh():
         return
     if not os.path.exists('recoginzer'):
         os.makedirs('recoginzer')
-
     # lưu file train
     recognizer.save('recoginzer/trainingData.yml')
+    # xuất thông báo Train thành công
     top = Toplevel()
     my_label = Label(top, text="Train Ảnh Thành Công").pack()
     numberReadTrain = 1
@@ -194,31 +219,27 @@ def NhanDien():
     global check
     check = 2
     btbnhandien["state"] = "disable"
-    res = "Đang Nhận Diện"
-    lblthongbao.place(x=30, y=435)
-    lblthongbao.configure(text=res)
+
+    txtID.delete(0, END)
+    txtTen.delete(0, END)
+    lblthongbao1.place(x=25, y=430)
+    lblthongbao1.configure(text="")
+    res2 = ""
+    lblthongbao2.place(x=25, y=470)
+    lblthongbao2.configure(text=res2)
+    res3 = "Đang Nhận Diện"
+    lblthongbao3.place(x=30, y=510)
+    lblthongbao3.configure(text=res3)
+    res4 = ""
+    lblthongbao4.place(x=45, y=550)
+    lblthongbao4.configure(text=res4)
 
 
 def ThemNhanDien():
+    global userID, error
     btbnhandien["state"] = "normal"
-    res = "Thêm Nhận Diện"
-    lblthongbao.place(x=25, y=435)
-    lblthongbao.configure(text=res)
-
-
-def BoSungAnh():
-    btbnhandien["state"] = "normal"
-    res = "Bổ Sung Ảnh"
-    lblthongbao.place(x=45, y=435)
-    lblthongbao.configure(text=res)
-
-
-def DangKy():
-    global userID
-    btbnhandien["state"] = "normal"
-    res = ""
     if txtID.get() == "" or txtTen.get() == "":
-        res = "Bạn chưa nhập ID hoặc tên"
+        messagebox.showerror("Lỗi:", "Bạn chưa nhập ID hoặc Tên!!!")
     else:
         try:
             # bắt lỗi nhập chữ vào ID
@@ -228,14 +249,65 @@ def DangKy():
             if error != "":
                 messagebox.showerror("Lỗi:", error)
             else:
-                if messagebox.askquestion("Hỏi:", "Bạn có muốn lấy ảnh luôn không?.") == "yes":
-                    userID = txtID.get()
-                    LayAnh()
-                res = "Đăng ký thành công"
+                res = "Thêm Nhận Diện"
+                lblthongbao1.place(x=25, y=430)
+                lblthongbao1.configure(text=res)
+                res2 = "Tên: " + txtTen.get()
+                lblthongbao2.place(x=20, y=470)
+                lblthongbao2.configure(text=res2)
+                res3 = "ID: " + txtID.get()
+                lblthongbao3.place(x=20, y=510)
+                lblthongbao3.configure(text=res3)
+                res4 = "Mời Lấy Ảnh "
+                lblthongbao4.place(x=45, y=550)
+                lblthongbao4.configure(text=res4)
+                userID = txtID.get()
+
         except ValueError:
             messagebox.showerror("Lỗi:", "ID phải nhập số!")
-    lblthongbao.pack()
-    lblthongbao.configure(text=res)
+
+
+def BoSungAnh():
+    lblthongbao1.place(x=25, y=430)
+    lblthongbao1.configure(text="")
+    res2 = ""
+    lblthongbao2.place(x=25, y=470)
+    lblthongbao2.configure(text=res2)
+    res3 = "Bổ Sung Ảnh"
+    lblthongbao3.place(x=40, y=510)
+    lblthongbao3.configure(text=res3)
+    res4 = ""
+    lblthongbao4.place(x=45, y=550)
+    lblthongbao4.configure(text=res4)
+
+
+def XemDuLieu():
+    scrollbar = Scrollbar(window)
+    scrollbar.place(x=15, y=440, width=219, height=182)
+
+    # mylist = Listbox(window, yscrollcommand=scrollbar.set, bg="lightblue")
+    # Tree View
+    tv = ttk.Treeview(window)
+    tv['columns'] = ('ID', 'Name')
+    tv.column('#0', width=0, stretch=NO)
+    tv.column('ID', anchor=CENTER, width=80)
+    tv.column('Name', anchor=CENTER, width=80)
+
+    tv.heading('#0', text='', anchor=CENTER)
+    tv.heading('ID', text='ID', anchor=CENTER)
+    tv.heading('Name', text='Name', anchor=CENTER)
+    conn = sqlite3.connect('facebase.db')
+    query = "SELECT * FROM people ORDER BY id DESC"
+    cursor = conn.execute(query)
+    for people in cursor:
+        print(people[0], people[1])
+        tv.insert(parent='', index=0, text='', values=(people[0], people[1]))
+    conn.close()
+
+    tv.place(x=15, y=440, width=219, height=182)
+    scrollbar.config(command=tv.yview())
+    # mylist.place(x=15, y=440, width=219, height=182)
+    # scrollbar.config(command=mylist.yview)
 
 
 def insertPeople(ID, name):
@@ -344,26 +416,27 @@ def getMaxNumberImage(path, ID):
 # Nút Lấy Ảnh
 btblayanh = Button(window, text="LẤY ẢNH", bg="orange", fg="black", font=("Calibri Bold", 13), bd=10, command=LayAnh)
 btblayanh.place(x=270, y=560, width=110, height=70)
-# Nút Thêm Ảnh
-btbthemanh = Button(window, text="BỔ SUNG ẢNH", bg="Yellow", fg="Black", font=("Calibri Bold", 13), bd=10,
-                    command=BoSungAnh)
-btbthemanh.place(x=40, y=330, width=160, height=70)
+# Nút Bổ Sung Ảnh
+btbnhandien = Button(window, text="BỔ SUNG ẢNH", bg="BLue", fg="white", font=("Calibri Bold", 13), bd=10,
+                     command=BoSungAnh)
+btbnhandien.place(x=50, y=262, width=160, height=60)
 # Nút Đọc Ảnh
-btbtrainanh = Button(window, text="ĐỌC ẢNH", bg="orange", fg="black", font=("Calibri Bold", 13), bd=10, command=DocAnh)
-btbtrainanh.place(x=440, y=560, width=115, height=70)
+btbtriananh = Button(window, text="ĐỌC ẢNH", bg="Pink", fg="black", font=("Calibri Bold", 13), bd=10, command=DocAnh)
+btbtriananh.place(x=440, y=560, width=115, height=70)
 # Nút Nhận Diện
-btbnhandien = Button(window, text="NHẬN DIỆN", bg="orange", fg="black", font=("Calibri Bold", 13), bd=10,
+btbnhandien = Button(window, text="NHẬN DIỆN", bg="Yellow", fg="black", font=("Calibri Bold", 13), bd=10,
                      command=NhanDien)
 btbnhandien.place(x=620, y=560, width=120, height=70)
-# Nút Thêm Người
-btbthemnguoi = Button(window, text="THÊM NHÂN DIỆN", bg="Yellow", fg="Black", font=("Calibri Bold", 13), bd=10,
-                      command=ThemNhanDien)
-btbthemnguoi.place(x=40, y=230, height=70)
-# Nút Đăng Ký
-btbdangky = Button(window, text="Đăng Ký", bg="pink", fg="black", font=("Calibri Bold", 10), bd=7, command=DangKy)
-btbdangky.place(x=175, y=185, width=70)
+# Nút Thêm Nhận Diện
+btbnhandien = Button(window, text="THÊM NHÂN DIỆN", bg="BLue", fg="white", font=("Calibri Bold", 13), bd=10,
+                     command=ThemNhanDien)
+btbnhandien.place(x=50, y=190, height=60)
+# Nút Xem Duữ liệu
+btbnhandien = Button(window, text="XEM DỮ lIỆU", bg="BLue", fg="white", font=("Calibri Bold", 13), bd=10,
+                     command=XemDuLieu)
+btbnhandien.place(x=50, y=335, height=60, width=160)
 # Nút Thoát
 btbthoat = Button(window, text="THOÁT", bg="RED", fg="black", font=("Calibri Bold", 13), bd=10, command=thoat)
-btbthoat.place(x=800, y=560, width=80, height=70)
+btbthoat.place(x=800, y=560, width=90, height=70)
 
 window.mainloop()
