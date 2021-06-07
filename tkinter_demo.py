@@ -1,16 +1,16 @@
+import os
+import sqlite3
 import tkinter
 from tkinter import *
+from tkinter import messagebox, filedialog
+from tkinter import ttk
 
 import PIL.Image
 import PIL.ImageTk
 import cv2
-from PIL import ImageTk, Image
-
-import os
-import sqlite3
 import numpy as np
-from tkinter import messagebox
-from tkinter import ttk
+from PIL import Image, UnidentifiedImageError
+from mtcnn_cv2 import MTCNN
 
 window = Tk()
 window.title("Nhan Dang Khuon Mat")
@@ -67,6 +67,9 @@ error = ""
 count = 1
 # số lượng ảnh hiện có
 numberImage = None
+# bổ sung ảnh
+addPhoto = None
+detector = MTCNN()
 
 
 ########### Sự Kiên $$$$$$$$$$
@@ -76,9 +79,10 @@ def update_frame():
     # lấy ảnh
     if check == 1:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.3, 7)
-        for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        faces = detector.detect_faces(frame)
+        if len(faces) > 0:
+            box = faces[0]['box']
+            cv2.rectangle(frame, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (0, 255, 0), 2)
             # tạo thư mục dataSet
             if not os.path.exists('dataSet'):
                 os.makedirs('dataSet')
@@ -89,14 +93,13 @@ def update_frame():
                 count = 2
             if numberImage is None:
                 cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(sampleNum) + '.' + '0' + '.jpg',
-                            gray[y: y + h, x: x + w])
+                            gray[box[1]:box[1] + box[3], box[0]:box[0] + box[2]])
             # lưu khuôn mặt
             # User.1.1.0.jpg chưa train
             # User.1.1.1.jpg đã train
             else:
                 cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(sampleNum + numberImage) + '.' + '0' + '.jpg',
-                            gray[y: y + h, x: x + w])
-            break
+                            gray[box[1]:box[1] + box[3], box[0]:box[0] + box[2]])
         if sampleNum > 99:
             sampleNum = 0
             check = 0
@@ -109,34 +112,38 @@ def update_frame():
     # nhận diện hình ảnh
     elif check == 2:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.3, 7)
+        faces = detector.detect_faces(frame)
         if numberReadTrain == 1:
             recognizer = cv2.face.LBPHFaceRecognizer_create()
             numberReadTrain = numberReadTrain + 1
-            # recognizer.read('E:\\ChuyenDe\\NhanDienKhuonMat\\recoginzer\\trainingData.yml')
             recognizer.read('recoginzer/trainingData.yml')
-        for (x, y, w, h) in faces:
+        if len(faces) > 0:
             # vẽ ô vuông
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 225, 0), 2)
+            box = faces[0]['box']
+            cv2.rectangle(frame, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (0, 255, 0), 2)
 
             # cắt khuôn mặt trên webcam
-            roi_gray = gray[y:y + h, x:x + w]
+            roi_gray = gray[box[1]:box[1] + box[3], box[0]:box[0] + box[2]]
 
             # nhận diện người này là ai, trả về tham số id và độ chính xác
             ID, confidence = recognizer.predict(roi_gray)
+            print(ID)
             if confidence < 100:
                 profile = getProfile(ID)
                 if profile is not None:
                     confidence = "{0}%".format(round(100 - confidence))
-                    cv2.putText(frame, str(profile[1]), (x + 10, y + h + 30), fontface, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, str(confidence), (x + 100, y + h + 30), fontface, 1, (0, 255, 255), 2)
+                    cv2.putText(frame, str(profile[1]), (box[0] + 10, box[1] + box[3] + 30), fontface, 1, (0, 255, 0),
+                                2)
+                    cv2.putText(frame, str(confidence), (box[0] + 100, box[1] + box[3] + 30), fontface, 1,
+                                (0, 255, 255), 2)
                 else:
-                    cv2.putText(frame, str("Unknow"), (x + 10, y + h + 30), fontface, 1, (0, 0, 255), 2)
-            break
+                    cv2.putText(frame, str("Unknow"), (box[0] + 10, box[1] + box[3] + 30), fontface, 1, (0, 0, 255), 2)
     # Chuyen he mau
     color = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
     # Convert hanh image TK
     photo = PIL.ImageTk.PhotoImage(image=PIL.Image.fromarray(color))
+
     # Show
     canvas.create_image(0, 0, image=photo, anchor=tkinter.NW)
     window.after(15, update_frame)
@@ -152,7 +159,7 @@ def thoat():
 def LayAnh():
     global bw, check, userID
     btbnhandien["state"] = "normal"
-    if txtID.get() == "" and userID is None:
+    if txtID.get().strip() == "" and userID is None:
         messagebox.showerror("Lỗi:", "Bạn chưa nhập ID!!!.")
     else:
         try:
@@ -201,8 +208,7 @@ def DocAnh():
     if faces:
         recognizer.train(faces, np.array(Ids))
     else:
-        top = Toplevel()
-        my_label = Label(top, text="Không Có Ảnh Cần Train").pack()
+        messagebox.showinfo("Thông báo", "Không có ảnh cần huấn luyện!!!")
         numberReadTrain = 1
         return
     if not os.path.exists('recoginzer'):
@@ -210,8 +216,7 @@ def DocAnh():
     # lưu file train
     recognizer.save('recoginzer/trainingData.yml')
     # xuất thông báo Train thành công
-    top = Toplevel()
-    my_label = Label(top, text="Train Ảnh Thành Công").pack()
+    messagebox.showinfo("Thông báo", "Huấn luyện ảnh thành công!!!")
     numberReadTrain = 1
 
 
@@ -268,6 +273,41 @@ def ThemNhanDien():
 
 
 def BoSungAnh():
+    global photo, userID
+    if txtID.get().strip() == "" and userID is None:
+        messagebox.showerror("Lỗi:", "Bạn chưa nhập ID!!!.")
+    else:
+        try:
+            userID = int(txtID.get().strip())
+            if checkID(userID):
+                filename = filedialog.askopenfilename(initialdir=os.getcwd(), title="Chọn ảnh", filetypes=(
+                    ("jpg images", ".jpg"), ("png images", ".png"), ("all files", "*.*")))
+                if not filename:
+                    return
+                try:
+                    image = cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2RGB)
+                    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                    faces = detector.detect_faces(image)
+                    if len(faces) > 0:
+                        box = faces[0]['box']
+                        nImage = getMaxNumberImage('dataSet', userID)
+                        if nImage is None:
+                            cv2.imwrite('dataSet/User.' + str(userID) + '.' + str(0) + '.' + '0' + '.jpg',
+                                        gray[box[1]:box[1] + box[3], box[0]:box[0] + box[2]])
+                        else:
+                            cv2.imwrite(
+                                'dataSet/User.' + str(userID) + '.' + str(nImage+1) + '.' + '0' + '.jpg',
+                                gray[box[1]:box[1] + box[3], box[0]:box[0] + box[2]])
+                        messagebox.showinfo("Thông báo", "Đã thêm ảnh thành công!!!")
+                    else:
+                        messagebox.showerror("Lỗi", "Ảnh không có khuôn mặt!!!")
+                except UnidentifiedImageError:
+                    messagebox.showerror("Lỗi:", "Bạn phải chọn ảnh!!!")
+            else:
+                messagebox.showerror("Lỗi:", "ID không tồn tại!!!")
+        except ValueError:
+            messagebox.showerror("Lỗi:", "ID phải nhập số!")
+    userID = None
     lblthongbao1.place(x=25, y=430)
     lblthongbao1.configure(text="")
     res2 = ""
@@ -300,7 +340,6 @@ def XemDuLieu():
     query = "SELECT * FROM people ORDER BY id DESC"
     cursor = conn.execute(query)
     for people in cursor:
-        print(people[0], people[1])
         tv.insert(parent='', index=0, text='', values=(people[0], people[1]))
     conn.close()
 
@@ -365,7 +404,7 @@ def getImageWithId(path):
         checkTrain = int(imagePath.split('\\')[1].split('.')[3])
         if checkTrain == 0:
             # user.1.1.0
-            Id = int(imagePath.split('\\')[1].split('.')[2])
+            Id = int(imagePath.split('\\')[1].split('.')[1])
             nameImage = imagePath.split('\\')[1]
             array = imagePath.split('\\')[1].split('.')
 
